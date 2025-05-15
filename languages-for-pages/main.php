@@ -2,7 +2,7 @@
 /*
 Plugin Name: Languages for pages
 Description: Adds support for adding languages to pages for localizing your website for other countries. 
-Version: 1.5.5
+Version: 1.5.6
 Author: Patriks
 */
 

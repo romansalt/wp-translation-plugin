@@ -141,44 +141,51 @@ function tlf_register_custom_tags_endpoint() {
 }
 add_action('rest_api_init', 'tlf_register_custom_tags_endpoint');
 
+
 // Callback to return filtered tags based on language parameter
 function tlf_get_filtered_tags($request) {
+    global $wpdb;
+    
     $language = $request->get_param('language');
     if (!$language) {
         return new WP_Error('no_language', 'Language parameter is required', array('status' => 400));
     }
-
-    $args = array(
-        'taxonomy'   => 'post_tag',
-        'hide_empty' => false,
-        'meta_query' => array(
-            array(
-                'key'     => '_custom_language',
-                'value'   => $language,
-                'compare' => '='
-            )
-        ),
-    );
-
-    $terms = get_terms($args);
-    if (is_wp_error($terms)) {
-        return new WP_Error('no_tags', 'No tags found', array('status' => 404));
-    }
-
-    $controller = new WP_REST_Terms_Controller('post_tag');
+    
+    error_log('Simple: Searching for tags with language: ' . $language);
+    
+    // Get all tag data directly from the database
+    $results = $wpdb->get_results($wpdb->prepare(
+        "SELECT t.term_id, t.name, t.slug, tt.count, tt.description
+         FROM $wpdb->terms t
+         JOIN $wpdb->term_taxonomy tt ON t.term_id = tt.term_id
+         JOIN $wpdb->termmeta tm ON t.term_id = tm.term_id
+         WHERE tt.taxonomy = 'post_tag'
+         AND tm.meta_key = '_custom_language' 
+         AND tm.meta_value = %s
+         ORDER BY t.name ASC",
+        $language
+    ));
+    
+    error_log('Direct SQL found ' . count($results) . ' tags for language ' . $language);
+    
+    // Format each tag to match the expected REST API response format
     $data = array();
-    foreach ($terms as $term) {
-        $response = $controller->prepare_item_for_response($term, $request);
-        $data[] = $controller->prepare_response_for_collection($response);
+    foreach ($results as $tag) {
+        $term_id = (int)$tag->term_id;
+        
+        // Build a simplified response format with only the essential fields
+        $data[] = array(
+            'id' => $term_id,
+            'name' => $tag->name,
+            'slug' => $tag->slug,
+            'count' => (int)$tag->count
+        );
     }
-
-    // Add cache control headers to the response
-    $response = rest_ensure_response($data);
-    $response->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-    $response->header('Pragma', 'no-cache');
-    $response->header('Expires', '0');
-
-    return $response;
+    
+    error_log('Returning ' . count($data) . ' simplified tags');
+    
+    // Return the simplified response
+    return $data;
 }
 
 // Override the standard post_tag REST endpoint to filter by language

@@ -37,6 +37,7 @@ add_filter('wp_get_attachment_metadata', function($data, $attachment_id) {
     }
     
     error_log('media metadata with alt: ' . json_encode($data, JSON_PRETTY_PRINT));
+    error_log('query: ' . $wpdb->last_query);
     return $data;
 }, 10, 2);
 
@@ -58,10 +59,12 @@ add_filter('wp_get_attachment_image_attributes', function($attr, $attachment, $s
     }
     
     error_log('media alt metadata: ' . json_encode($attr));
+    error_log('query: ' . $wpdb->last_query);
+
     return $attr;
 }, 10, 3);
 
-add_filter('wp_get_attachment_image', function($html, $attachment_id) {
+add_filter('rest_prepare_attachment', function($html, $attachment_id) {
     $language = determine_current_language();
     global $wpdb;
     
@@ -77,6 +80,7 @@ add_filter('wp_get_attachment_image', function($html, $attachment_id) {
         // Use regex to replace alt attribute in the HTML
         $html = preg_replace('/alt=(["\'])(.*?)\\1/', 'alt="' . esc_attr($translated_alt) . '"', $html);
     }
+    error_log('query: ' . $wpdb->last_query);
     
     return $html;
 }, 20, 5);
